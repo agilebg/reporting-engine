@@ -62,6 +62,12 @@ class py3o_report(report_sxw):
 
         #TODO: Move this stuff in py3o.template as a helper function
         tmpl_def = report_xml.py3o_template_id
+
+        if not tmpl_def.py3o_template_data:
+            raise osv.except_osv(
+                _(u"Error"),
+                _(u"You must provide a template for this report.")
+            )
         in_stream = StringIO(b64decode(tmpl_def.py3o_template_data))
         out_stream = StringIO()
         template = Template(in_stream, out_stream)
@@ -77,9 +83,16 @@ class py3o_report(report_sxw):
         res = data_struct.render(datadict)
 
         fusion_server_obj = pool.get('py3o.server')
-        fusion_server_id = fusion_server_obj.search(
+        fusion_server_ids = fusion_server_obj.search(
             cr, uid, [], context=context
-        )[0]
+        )
+        if not fusion_server_ids:
+            raise osv.except_osv(
+                _(u"Error"),
+                _(u"No Py3o server configuration found")
+            )
+        fusion_server_id = fusion_server_ids[0]
+
         fusion_server = fusion_server_obj.browse(
             cr, uid, fusion_server_id, context=context
         )
@@ -92,16 +105,16 @@ class py3o_report(report_sxw):
             "datadict": json.dumps(res),
             "image_mapping": "{}",
         }
-        # Here is a little joke about Odoo
-        # we do nice chunked reading from the network...
         r = requests.post(fusion_server.url, data=fields, files=files)
-        if r.status_code == 400:
+        if r.status_code != 200:
             # server says we have an issue... let's tell that to enduser
             raise osv.except_osv(
                 _('Fusion server error'),
-                r.json(),
+                r,
             )
 
+        # Here is a little joke about Odoo
+        # we do nice chunked reading from the network...
         chunk_size = 1024
         with NamedTemporaryFile(
             suffix=filetype.human_ext,
