@@ -2,6 +2,8 @@ from base64 import b64decode
 import json
 from tempfile import NamedTemporaryFile
 from cStringIO import StringIO
+
+import time
 from py3o.template.helpers import Py3oConvertor
 
 import requests
@@ -46,6 +48,7 @@ class py3o_report(report_sxw):
 
     def create(self, cr, uid, ids, data, context=None):
         # Find the report definition to get its settings.
+        cur = time.time()
         pool = pooler.get_pool(cr.dbname)
         report_xml_obj = pool.get('ir.actions.report.xml')
         report_xml_ids = report_xml_obj.search(
@@ -112,6 +115,7 @@ class py3o_report(report_sxw):
                 _('Fusion server error'),
                 r,
             )
+        print("Request finished after {}s".format(time.time() - cur))
 
         # Here is a little joke about Odoo
         # we do nice chunked reading from the network...
